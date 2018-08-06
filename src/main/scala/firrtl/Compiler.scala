@@ -327,6 +327,9 @@ trait Emitter extends Transform {
   def emit(state: CircuitState, writer: Writer): Unit
 }
 
+/** Wraps exceptions from CustomTransforms so they can be reported appropriately */
+private[firrtl] case class CustomTransformException(cause: Throwable) extends Exception("", cause)
+
 object CompilerUtils extends LazyLogging {
   /** Generates a sequence of [[Transform]]s to lower a Firrtl circuit
     *
@@ -465,10 +468,20 @@ trait Compiler extends LazyLogging {
     * @return result of compilation
     */
   def compile(state: CircuitState, customTransforms: Seq[Transform]): CircuitState = {
+    val isCustomTransform = customTransforms.toSet
     val allTransforms = CompilerUtils.mergeTransforms(transforms, customTransforms) :+ emitter
 
     val (timeMillis, finalState) = Utils.time {
-      allTransforms.foldLeft(state) { (in, xform) => xform.runTransform(in) }
+      allTransforms.foldLeft(state) { (in, xform) =>
+        try {
+          xform.runTransform(in)
+        } catch {
+          // Rethrow the exceptions which are expected or due to the runtime environment (out of memory, stack overflow)
+          case p: scala.util.control.ControlThrowable => throw p
+          // Wrap exceptions from custom transforms so they are reported as such
+          case e: Exception if isCustomTransform(xform) => throw CustomTransformException(e)
+        }
+      }
     }
 
     logger.error(f"Total FIRRTL Compile Time: $timeMillis%.1f ms")

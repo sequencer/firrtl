@@ -468,7 +468,6 @@ trait Compiler extends LazyLogging {
     * @return result of compilation
     */
   def compile(state: CircuitState, customTransforms: Seq[Transform]): CircuitState = {
-    val isCustomTransform = customTransforms.toSet
     val allTransforms = CompilerUtils.mergeTransforms(transforms, customTransforms) :+ emitter
 
     val (timeMillis, finalState) = Utils.time {
@@ -476,10 +475,8 @@ trait Compiler extends LazyLogging {
         try {
           xform.runTransform(in)
         } catch {
-          // Rethrow the exceptions which are expected or due to the runtime environment (out of memory, stack overflow)
-          case p: scala.util.control.ControlThrowable => throw p
           // Wrap exceptions from custom transforms so they are reported as such
-          case e: Exception if isCustomTransform(xform) => throw CustomTransformException(e)
+          case e: Exception if customTransforms.toSet(xform) => throw CustomTransformException(e)
         }
       }
     }

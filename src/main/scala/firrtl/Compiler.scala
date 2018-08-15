@@ -468,6 +468,12 @@ trait Compiler extends LazyLogging {
     * @return result of compilation
     */
   def compile(state: CircuitState, customTransforms: Seq[Transform]): CircuitState = {
+    def isCustomTransform(xform: Transform): Boolean = {
+      def getTopPackage(pack: java.lang.Package): java.lang.Package =
+        Package.getPackage(pack.getName.split('.').head)
+      // We use the top package of the Driver to get the top firrtl package
+      getTopPackage(xform.getClass.getPackage) != firrtl.Driver.getClass.getPackage
+    }
     val allTransforms = CompilerUtils.mergeTransforms(transforms, customTransforms) :+ emitter
 
     val (timeMillis, finalState) = Utils.time {
@@ -476,7 +482,7 @@ trait Compiler extends LazyLogging {
           xform.runTransform(in)
         } catch {
           // Wrap exceptions from custom transforms so they are reported as such
-          case e: Exception if customTransforms.toSet(xform) => throw CustomTransformException(e)
+          case e: Exception if isCustomTransform(xform) => throw CustomTransformException(e)
         }
       }
     }

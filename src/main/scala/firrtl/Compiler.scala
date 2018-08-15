@@ -328,7 +328,7 @@ trait Emitter extends Transform {
 }
 
 /** Wraps exceptions from CustomTransforms so they can be reported appropriately */
-private[firrtl] case class CustomTransformException(cause: Throwable) extends Exception("", cause)
+case class CustomTransformException(cause: Throwable) extends Exception("", cause)
 
 object CompilerUtils extends LazyLogging {
   /** Generates a sequence of [[Transform]]s to lower a Firrtl circuit
